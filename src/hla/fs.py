@@ -26,9 +26,14 @@ class HlaReader:
         hla_list: List[Hla] = []
         hla_data: HlaData = HlaData()
         reading_seq = False
+        exon = None
+        is_line_of_exon_number = False
 
         with (open(path, 'r')) as file:
             for line in file.readlines():
+                if line.startswith('XX'):
+                    continue
+
                 if line.startswith('ID'):
                     if hla_data.is_valid():
                         hla_list.append(hla_data.parse())
@@ -43,14 +48,22 @@ class HlaReader:
 
                     continue
 
+                if is_line_of_exon_number and exon != None:
+                    exon.number = int(
+                        re.findall('(?<=number=")\d+(?=")', line)[0]
+                    )
+                    is_line_of_exon_number = False
+
+                    continue
+
                 if line.startswith('FT   exon'):
                     exon_range = re.findall('\d+', line)
 
-                    hla_data.exons.append(
-                        HlaExon(
-                            range(int(exon_range[0]) - 1, int(exon_range[1]))
-                        )
+                    exon = HlaExon(
+                        range(int(exon_range[0]) - 1, int(exon_range[1]))
                     )
+                    hla_data.exons.append(exon)
+                    is_line_of_exon_number = True
 
                     continue
 
@@ -60,11 +73,10 @@ class HlaReader:
                     continue
 
                 if line.startswith('//'):
-                    reading_seq = False
-
                     for exon in hla_data.exons:
                         exon.seq = hla_data.seq
-                        a = 1
+
+                    reading_seq = False
 
                     continue
 
@@ -78,21 +90,26 @@ class HlaReader:
 
 class HlaWriter:
     @staticmethod
-    def save_as_imgt(path: str, hla_list: List[Hla]):
+    def save_as_imgt(path: str, hla_list: List[Hla], fill: bool):
         def get_max_exons_len(hla_list: List[Hla]) -> List[int]:
             all_exons_len: List[List[int]] = []
             max_exons_len: List[int] = []
 
             for hla in hla_list:
-                for i, exon in enumerate(hla.exons):
+                for exon in hla.exons:
                     try:
-                        all_exons_len[i].append(exon.len)
+                        all_exons_len[exon.number - 1].append(exon.len)
                     except IndexError:
-                        all_exons_len.append([])
-                        all_exons_len[i].append(exon.len)
+                        for _ in range(0, exon.number - len(all_exons_len)):
+                            all_exons_len.append([])
+
+                        all_exons_len[exon.number - 1].append(exon.len)
 
             for exons_len in all_exons_len:
-                max_exons_len.append(max(exons_len))
+                try:
+                    max_exons_len.append(max(exons_len))
+                except ValueError:
+                    max_exons_len.append(0)
 
             return max_exons_len
 
@@ -111,13 +128,15 @@ class HlaWriter:
             for hla in hla_list:
                 file.write(f'#{hla.name}\n')
 
-                for i in range(0, qt_exons):
-                    file.write(f'>EX{i + 1}\n')
+                for i in range(1, qt_exons + 1):
+                    file.write(f'>EX{i}\n')
 
                     try:
-                        test = len(hla.exons[i].seq.upper())
-                        exon_seq = f'{hla.exons[i].seq.upper():N<{max_exons_len[i]}}'
+                        if fill:
+                            exon_seq = f'{hla.get_nth_exon(i).seq.upper():N<{max_exons_len[i - 1]}}'
+                        else:
+                            exon_seq = f'{hla.get_nth_exon(i).seq.upper()}'
                     except:
-                        exon_seq = 'N' * max_exons_len[i]
+                        exon_seq = 'N' * max_exons_len[i - 1]
 
                     file.write(f'{separate_in_lines(exon_seq, 60)}\n')

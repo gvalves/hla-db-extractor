@@ -6,7 +6,7 @@ def main():
     args = parse_args()
 
     hla_list = HlaReader.read_dat(args.dat)
-    HlaWriter.save_as_imgt(args.imgt, hla_list)
+    HlaWriter.save_as_imgt(args.imgt, hla_list, args.fill)
 
 
 if __name__ == '__main__':

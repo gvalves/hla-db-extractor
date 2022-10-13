@@ -9,6 +9,13 @@ class Hla:
         self.__seq = seq
         self.__exons = exons
 
+    def get_nth_exon(self, nth: int) -> HlaExon:
+        for exon in self.exons:
+            if exon.number == nth:
+                return exon
+
+        raise ValueError('Exon not found')
+
     @property
     def id(self) -> str:
         return self.__id
@@ -30,6 +37,7 @@ class HlaExon:
     def __init__(self, range: range) -> None:
         self.__range = range
         self.__seq: str = ''
+        self.__number: int
 
     @property
     def seq(self) -> str:
@@ -42,6 +50,15 @@ class HlaExon:
     @property
     def range(self) -> range:
         return self.__range
+
+    @property
+    def number(self) -> int:
+        return self.__number
+
+    @number.setter
+    def number(self, number):
+        if number > 0:
+            self.__number = number
 
     @property
     def len(self) -> int:
