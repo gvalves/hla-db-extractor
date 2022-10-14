@@ -12,9 +12,10 @@ class HlaData:
         self.name: str = ''
         self.seq: str = ''
         self.exons: List[HlaExon] = []
+        self.invalid: bool = False
 
     def is_valid(self) -> bool:
-        return self.id and self.name and self.seq and len(self.exons) > 0
+        return self.id and self.name and self.seq and len(self.exons) > 0 and not self.invalid
 
     def parse(self) -> Hla:
         return Hla(self.id, self.name, self.seq, self.exons)
@@ -48,10 +49,18 @@ class HlaReader:
 
                     continue
 
+                if line.startswith('DE') and hla_data.name:
+                    hla_data.invalid = True
+
+                    continue
+
                 if is_line_of_exon_number and exon != None:
                     exon.number = int(
                         re.findall('(?<=number=")\d+(?=")', line)[0]
                     )
+                    if 0 < exon.number < 9:
+                        hla_data.exons.append(exon)
+
                     is_line_of_exon_number = False
 
                     continue
@@ -62,7 +71,6 @@ class HlaReader:
                     exon = HlaExon(
                         range(int(exon_range[0]) - 1, int(exon_range[1]))
                     )
-                    hla_data.exons.append(exon)
                     is_line_of_exon_number = True
 
                     continue
